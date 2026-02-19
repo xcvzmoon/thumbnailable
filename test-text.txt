@@ -1,0 +1,46 @@
+# Sample Text File for Testing
+
+This is a sample text file used for testing the thumbnail generation feature.
+
+## Features
+
+- Line 1: Plain text support
+- Line 2: Multiple formats
+- Line 3: UTF-8 encoding
+- Line 4: Various characters: @#$%^&*()
+- Line 5: Numbers: 1234567890
+
+## Code Example
+
+```javascript
+function hello() {
+  console.log("Hello, World!");
+}
+```
+
+## CSV Data Example
+
+Name,Age,City
+Alice,30,New York
+Bob,25,Los Angeles
+Charlie,35,Chicago
+
+## Long Text
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+## Special Characters
+
+• Bullet points
+→ Arrows
+★ Stars
+♥ Hearts
+
+## Numbers and Data
+
+42 is the answer to life, the universe, and everything.
+π ≈ 3.14159265359
+
+## Conclusion
+
+This file contains various text elements to test the thumbnail generation capabilities.
