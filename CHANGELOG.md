@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.0
+
+[compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.1.0...v0.1.1)
+
+### 🚀 Enhancements
+
+- Add pdf thumbnail getter ([c14632a](https://github.com/xcvzmoon/thumbnailable/commit/c14632a))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil <mrgamilmonalbert@gmail.com>
+
 ## v0.1.0
 
 
