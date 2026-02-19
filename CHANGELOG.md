@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.3.0
+
+[compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.2.0...v0.3.0)
+
+### 🚀 Enhancements
+
+- Add text thumbnail getter ([c62fc2c](https://github.com/xcvzmoon/thumbnailable/commit/c62fc2c))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil <mrgamilmonalbert@gmail.com>
+
 ## v0.2.0
 
 [compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.1.0...v0.1.1)
