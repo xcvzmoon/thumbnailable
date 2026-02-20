@@ -11,12 +11,7 @@ A TypeScript library for extracting thumbnails from various document formats.
 - **Text files** - Generate thumbnails from text files (TXT, CSV, MD, etc.)
 - **Excel** - Generate thumbnails from Excel spreadsheets (XLSX, XLS)
 - **Word** - Generate thumbnails from Word documents (DOC, DOCX)
-
-## Planned Support
-
-The following formats will be supported in future releases:
-
-- **PPTX** - Microsoft PowerPoint presentations
+- **PowerPoint** - Generate thumbnails from PowerPoint presentations (PPTX)
 
 ## Installation
 
@@ -112,6 +107,22 @@ const buffer = await readFile('./document.docx');
 const thumbnail = await getWordThumbnail(buffer);
 ```
 
+### PowerPoint Thumbnails
+
+```typescript
+import { getPptxThumbnail } from 'thumbnailable';
+
+// From file path
+const thumbnail = await getPptxThumbnail('./presentation.pptx');
+
+// From file path with output
+const thumbnail = await getPptxThumbnail('./presentation.pptx', './output.webp');
+
+// From Buffer
+const buffer = await readFile('./presentation.pptx');
+const thumbnail = await getPptxThumbnail(buffer);
+```
+
 ## API
 
 ### `getImageThumbnail(image, output?)`
@@ -205,6 +216,26 @@ Generates a thumbnail preview from a Word document (DOC or DOCX).
   - Up to 20 lines of content
   - Truncation indicator (...) for long content
 
+### `getPptxThumbnail(source, output?)`
+
+Generates a thumbnail preview from a PowerPoint presentation (first slide only).
+
+**Parameters:**
+
+- `source` - `string | Buffer` - Path to PowerPoint file or Buffer containing presentation data
+- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
+
+**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
+
+**Output:**
+
+- Format: WebP
+- Dimensions: 640x360 pixels
+- Rendering: Slide content on white background with:
+  - Sans-serif font
+  - Up to 15 lines of content
+  - Truncation indicator (...) for long content
+
 ## Development
 
 ```bash
@@ -220,6 +251,7 @@ bun run examples/pdf-example.ts
 bun run examples/text-example.ts
 bun run examples/excel-example.ts
 bun run examples/word-example.ts
+bun run examples/pptx-example.ts
 
 # Build
 bun run build
