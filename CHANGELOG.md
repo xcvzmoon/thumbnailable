@@ -1,6 +1,34 @@
 # Changelog
 
 
+## v1.0.0
+
+[compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.6.0...v1.0.0)
+
+### 💅 Refactors
+
+- ⚠️  Consolidate utilities and improve error handling ([1480ad3](https://github.com/xcvzmoon/thumbnailable/commit/1480ad3))
+
+### 📖 Documentation
+
+- Update README with detailed documentation ([7690a58](https://github.com/xcvzmoon/thumbnailable/commit/7690a58))
+
+### ✅ Tests
+
+- Update tests for refactored API ([25ee452](https://github.com/xcvzmoon/thumbnailable/commit/25ee452))
+
+### 🤖 CI
+
+- Add combined CI workflow ([5f1fbbd](https://github.com/xcvzmoon/thumbnailable/commit/5f1fbbd))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Consolidate utilities and improve error handling ([1480ad3](https://github.com/xcvzmoon/thumbnailable/commit/1480ad3))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil <mrgamilmonalbert@gmail.com>
+
 ## v0.6.0
 
 [compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.5.0...v0.6.0)
