@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v1.0.1
+
+[compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v1.0.0...v1.0.1)
+
+### 🏡 Chore
+
+- Add package description ([f6126a3](https://github.com/xcvzmoon/thumbnailable/commit/f6126a3))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil <mrgamilmonalbert@gmail.com>
+
 ## v1.0.0
 
 [compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.6.0...v1.0.0)
