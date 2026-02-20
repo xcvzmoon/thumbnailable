@@ -1,242 +1,353 @@
 # Thumbnailable
 
-> **⚠️ Development Status**: This project is currently in active development.
+<p align="center">
+  <a href="https://www.npmjs.com/package/thumbnailable">
+    <img src="https://img.shields.io/npm/v/thumbnailable.svg" alt="npm version" />
+  </a>
+  <a href="https://github.com/xcvzmoon/thumbnailable/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/xcvzmoon/thumbnailable/ci.yaml?label=ci" alt="CI Status" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" />
+  </a>
+  <a href="https://nodejs.org/">
+    <img src="https://img.shields.io/badge/node-18+-green.svg" alt="Node.js Version" />
+  </a>
+</p>
 
-A TypeScript library for extracting thumbnails from various document formats.
+> Generate thumbnail images from documents and images in Node.js
 
-## Currently Supported
+Thumbnailable is a TypeScript library that generates thumbnail images from various document formats. Perfect for creating preview images for file uploads, document management systems, or content management platforms.
 
-- **Images** - Extract thumbnails from JPEG, PNG, and other image formats using EXIF data
-- **PDFs** - Generate thumbnails from PDF documents (first page, 640x360 centered)
-- **Text files** - Generate thumbnails from text files (TXT, CSV, MD, etc.)
-- **Excel** - Generate thumbnails from Excel spreadsheets (XLSX, XLS)
-- **Word** - Generate thumbnails from Word documents (DOC, DOCX)
-- **PowerPoint** - Generate thumbnails from PowerPoint presentations (PPTX)
+## Features
+
+- **Zero runtime dependencies** - Uses native Node.js capabilities where possible
+- **Multiple input sources** - Support for file paths, URLs, and Buffers
+- **Rich error handling** - Custom `ThumbnailError` with error codes for programmatic handling
+- **TypeScript native** - Full TypeScript support with type definitions
+- **Consistent output** - All thumbnails are 640x360 WebP images
+
+## Supported Formats
+
+| Format     | Function            | Notes                              |
+| ---------- | ------------------- | ---------------------------------- |
+| Images     | `getImageThumbnail` | JPEG, PNG, WebP, GIF, AVIF, TIFF   |
+| PDF        | `getPdfThumbnail`   | First page only                    |
+| Text       | `getTextThumbnail`  | TXT, CSV, MD, and other text files |
+| Excel      | `getExcelThumbnail` | XLSX (first sheet)                 |
+| Word       | `getWordThumbnail`  | DOC and DOCX                       |
+| PowerPoint | `getPptxThumbnail`  | PPTX (first slide)                 |
 
 ## Installation
 
 ```bash
-bun install thumbnailable
+# Using bun (recommended)
+bun add thumbnailable
+
+# Using npm
+npm install thumbnailable
+
+# Using yarn
+yarn add thumbnailable
 ```
 
-## Usage
-
-### Image Thumbnails
+## Quick Start
 
 ```typescript
-import { getImageThumbnail } from 'thumbnailable';
+import { writeFile } from 'node:fs/promises';
+import { getPdfThumbnail, ThumbnailError } from 'thumbnailable';
 
-// From file path
-const thumbnail = await getImageThumbnail('./image.jpg');
+try {
+  // Generate thumbnail from PDF
+  const thumbnail = await getPdfThumbnail('./document.pdf');
 
-// From file path with output
-const thumbnail = await getImageThumbnail('./image.jpg', './output.jpg');
+  // Save to file
+  await writeFile('./thumbnail.webp', Buffer.from(thumbnail));
 
-// From ArrayBuffer
-const arrayBuffer = await fetch(imageUrl).then((r) => r.arrayBuffer());
-const thumbnail = await getImageThumbnail(arrayBuffer);
+  console.log('Thumbnail generated successfully!');
+} catch (error) {
+  if (error instanceof ThumbnailError) {
+    console.error(`Error [${error.code}]: ${error.message}`);
+    console.error(`Source: ${error.source}`);
+  } else {
+    console.error('Unexpected error:', error);
+  }
+}
 ```
 
-### PDF Thumbnails
+## Usage Examples
+
+### From File Path
 
 ```typescript
 import { getPdfThumbnail } from 'thumbnailable';
 
-// From file path
-const thumbnail = await getPdfThumbnail('./document.pdf');
+const thumbnail = await getPdfThumbnail('./my-document.pdf');
+```
 
-// From file path with output
-const thumbnail = await getPdfThumbnail('./document.pdf', './output.webp');
+### From URL
 
-// From URL
+```typescript
+import { getPdfThumbnail } from 'thumbnailable';
+
 const thumbnail = await getPdfThumbnail('https://example.com/document.pdf');
+```
 
-// From Buffer
+### From Buffer
+
+```typescript
+import { readFile } from 'node:fs/promises';
+import { getPdfThumbnail } from 'thumbnailable';
+
 const buffer = await readFile('./document.pdf');
 const thumbnail = await getPdfThumbnail(buffer);
 ```
 
-### Text Thumbnails
+### Using with Fetch API
 
 ```typescript
-import { getTextThumbnail } from 'thumbnailable';
+import { getPdfThumbnail } from 'thumbnailable';
 
-// From file path
-const thumbnail = await getTextThumbnail('./document.txt');
-
-// From file path with output
-const thumbnail = await getTextThumbnail('./document.txt', './output.webp');
-
-// From URL
-const thumbnail = await getTextThumbnail('https://example.com/document.txt');
-
-// From Buffer
-const buffer = await readFile('./document.txt');
-const thumbnail = await getTextThumbnail(buffer);
+const response = await fetch('https://example.com/file.pdf');
+const buffer = await response.arrayBuffer();
+const thumbnail = await getPdfThumbnail(buffer);
 ```
 
-### Excel Thumbnails
+### Error Handling
 
 ```typescript
-import { getExcelThumbnail } from 'thumbnailable';
+import { getPdfThumbnail, ThumbnailError } from 'thumbnailable';
 
-// From file path
-const thumbnail = await getExcelThumbnail('./spreadsheet.xlsx');
-
-// From file path with output
-const thumbnail = await getExcelThumbnail('./spreadsheet.xlsx', './output.webp');
-
-// From Buffer
-const buffer = await readFile('./spreadsheet.xlsx');
-const thumbnail = await getExcelThumbnail(buffer);
+try {
+  const thumbnail = await getPdfThumbnail('./document.pdf');
+} catch (error) {
+  if (error instanceof ThumbnailError) {
+    switch (error.code) {
+      case 'FILE_NOT_FOUND':
+        console.error('The file does not exist:', error.source);
+        break;
+      case 'TIMEOUT':
+        console.error('Download timed out:', error.source);
+        break;
+      case 'PROCESSING_ERROR':
+        console.error('Failed to process the file:', error.message);
+        break;
+      default:
+        console.error(`Error [${error.code}]:`, error.message);
+    }
+  }
+  throw error;
+}
 ```
 
-### Word Thumbnails
+## API Reference
+
+### `getImageThumbnail(source)`
+
+Generates a thumbnail from an image file. Uses Sharp for high-quality image processing.
+
+**Parameters:**
+
+- `source` - `string | ArrayBuffer` - File path or ArrayBuffer
+
+**Returns:** `Promise<ArrayBuffer>` - WebP thumbnail
+
+**Example:**
 
 ```typescript
-import { getWordThumbnail } from 'thumbnailable';
+const thumbnail = await getImageThumbnail('./photo.jpg');
+```
 
-// From file path
+---
+
+### `getPdfThumbnail(source)`
+
+Generates a thumbnail from the first page of a PDF document.
+
+**Parameters:**
+
+- `source` - `string | Buffer` - File path, URL, or Buffer
+
+**Returns:** `Promise<ArrayBuffer>` - WebP thumbnail
+
+**Output:**
+
+- Dimensions: 640x360 pixels
+- Rendering: PDF page centered on white background
+
+**Example:**
+
+```typescript
+const thumbnail = await getPdfThumbnail('./document.pdf');
+```
+
+---
+
+### `getTextThumbnail(source)`
+
+Generates a thumbnail from a text file with syntax-aware rendering.
+
+**Parameters:**
+
+- `source` - `string | Buffer` - File path, URL, or Buffer
+
+**Returns:** `Promise<ArrayBuffer>` - WebP thumbnail
+
+**Output:**
+
+- Dimensions: 640x360 pixels
+- Font: Monospace (Consolas/Monaco)
+- Max: 50 lines or 2000 characters
+- CSV files: Renders with column separators
+
+**Example:**
+
+```typescript
+const thumbnail = await getTextThumbnail('./readme.md');
+```
+
+---
+
+### `getExcelThumbnail(source)`
+
+Generates a thumbnail from the first sheet of an Excel workbook.
+
+**Parameters:**
+
+- `source` - `string | Buffer` - File path or Buffer
+
+**Returns:** `Promise<ArrayBuffer>` - WebP thumbnail
+
+**Output:**
+
+- Dimensions: 640x360 pixels
+- Renders: Up to 20 rows and 6 columns
+- Features: Gridlines, header row highlighting
+
+**Example:**
+
+```typescript
+const thumbnail = await getExcelThumbnail('./data.xlsx');
+```
+
+---
+
+### `getWordThumbnail(source)`
+
+Generates a thumbnail from a Word document.
+
+**Parameters:**
+
+- `source` - `string | Buffer` - File path or Buffer
+
+**Returns:** `Promise<ArrayBuffer>` - WebP thumbnail
+
+**Output:**
+
+- Dimensions: 640x360 pixels
+- Font: Times New Roman (serif)
+- Max: 20 lines or 1500 characters
+
+**Example:**
+
+```typescript
 const thumbnail = await getWordThumbnail('./document.docx');
-
-// From file path with output
-const thumbnail = await getWordThumbnail('./document.docx', './output.webp');
-
-// From Buffer
-const buffer = await readFile('./document.docx');
-const thumbnail = await getWordThumbnail(buffer);
 ```
 
-### PowerPoint Thumbnails
+---
+
+### `getPptxThumbnail(source)`
+
+Generates a thumbnail from the first slide of a PowerPoint presentation.
+
+**Parameters:**
+
+- `source` - `string | Buffer` - File path or Buffer
+
+**Returns:** `Promise<ArrayBuffer>` - WebP thumbnail
+
+**Output:**
+
+- Dimensions: 640x360 pixels
+- Font: Arial (sans-serif)
+- Max: 15 lines or 1200 characters
+
+**Example:**
 
 ```typescript
-import { getPptxThumbnail } from 'thumbnailable';
-
-// From file path
 const thumbnail = await getPptxThumbnail('./presentation.pptx');
-
-// From file path with output
-const thumbnail = await getPptxThumbnail('./presentation.pptx', './output.webp');
-
-// From Buffer
-const buffer = await readFile('./presentation.pptx');
-const thumbnail = await getPptxThumbnail(buffer);
 ```
 
-## API
+## Error Handling
 
-### `getImageThumbnail(image, output?)`
+All functions throw `ThumbnailError` on failure, which includes:
 
-Extracts a thumbnail from an image.
+```typescript
+class ThumbnailError extends Error {
+  readonly source: string; // File path or URL that caused the error
+  readonly code: string; // Error code for programmatic handling
+}
+```
 
-**Parameters:**
+### Error Codes
 
-- `image` - `string | ArrayBuffer` - Path to image file or ArrayBuffer containing image data
-- `output` - `string` (optional) - Output file path for the extracted thumbnail
+| Code               | Description                                          |
+| ------------------ | ---------------------------------------------------- |
+| `FILE_NOT_FOUND`   | The specified file does not exist or is not readable |
+| `EMPTY_BUFFER`     | An empty Buffer or ArrayBuffer was provided          |
+| `INVALID_FORMAT`   | The file format is invalid or unsupported            |
+| `DOWNLOAD_FAILED`  | Failed to download from URL (HTTP error)             |
+| `TIMEOUT`          | Request timed out (default: 30 seconds)              |
+| `PROCESSING_ERROR` | Error during thumbnail generation                    |
 
-**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
+### Handling Errors
 
-### `getPdfThumbnail(source, output?)`
+```typescript
+import { getPdfThumbnail, ThumbnailError } from 'thumbnailable';
 
-Generates a thumbnail from a PDF document (first page only).
+try {
+  const thumbnail = await getPdfThumbnail(source);
+} catch (error) {
+  if (error instanceof ThumbnailError) {
+    // Handle specific error codes
+    switch (error.code) {
+      case 'FILE_NOT_FOUND':
+        // File doesn't exist
+        break;
+      case 'TIMEOUT':
+        // Request timed out
+        break;
+      case 'PROCESSING_ERROR':
+        // Invalid file format or processing failed
+        break;
+    }
+  }
+  throw error; // Re-throw if not handled
+}
+```
 
-**Parameters:**
+## TypeScript
 
-- `source` - `string | Buffer` - Path to PDF file, URL, or Buffer containing PDF data
-- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
+This library is written in TypeScript and includes type definitions. No additional `@types` packages are needed.
 
-**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
+```typescript
+import {
+  getPdfThumbnail,
+  getExcelThumbnail,
+  getWordThumbnail,
+  getPptxThumbnail,
+  getTextThumbnail,
+  getImageThumbnail,
+  ThumbnailError,
+} from 'thumbnailable';
+```
 
-**Output:**
+## Requirements
 
-- Format: WebP
-- Dimensions: 640x360 pixels
-- Rendering: PDF page is scaled to fit within dimensions while maintaining aspect ratio, centered on a white background
+- Node.js 18+
+- Bun 1.3+ (for development)
 
-### `getTextThumbnail(source, output?)`
-
-Generates a thumbnail preview from a text file (TXT, CSV, MD, etc.).
-
-**Parameters:**
-
-- `source` - `string | Buffer` - Path to text file, URL, or Buffer containing text data
-- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
-
-**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
-
-**Output:**
-
-- Format: WebP
-- Dimensions: 640x360 pixels
-- Rendering: Text content rendered on white background with:
-  - Dark header bar showing file type (TEXT/CSV)
-  - Monospace font for content
-  - Auto-wrapped lines that exceed viewport
-  - Truncation indicator (...) for long content
-  - Support for up to 50 lines or 2000 characters
-
-### `getExcelThumbnail(source, output?)`
-
-Generates a thumbnail preview from an Excel spreadsheet (first sheet only).
-
-**Parameters:**
-
-- `source` - `string | Buffer` - Path to Excel file or Buffer containing Excel data
-- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
-
-**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
-
-**Output:**
-
-- Format: WebP
-- Dimensions: 640x360 pixels
-- Rendering: Spreadsheet content on white background with:
-  - Gridlines
-  - Header row highlighting
-  - Up to 20 rows and 6 columns
-  - Truncation indicator for long content
-
-### `getWordThumbnail(source, output?)`
-
-Generates a thumbnail preview from a Word document (DOC or DOCX).
-
-**Parameters:**
-
-- `source` - `string | Buffer` - Path to Word file or Buffer containing Word document data
-- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
-
-**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
-
-**Output:**
-
-- Format: WebP
-- Dimensions: 640x360 pixels
-- Rendering: Document content on white background with:
-  - Serif font (Times New Roman)
-  - Up to 20 lines of content
-  - Truncation indicator (...) for long content
-
-### `getPptxThumbnail(source, output?)`
-
-Generates a thumbnail preview from a PowerPoint presentation (first slide only).
-
-**Parameters:**
-
-- `source` - `string | Buffer` - Path to PowerPoint file or Buffer containing presentation data
-- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
-
-**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
-
-**Output:**
-
-- Format: WebP
-- Dimensions: 640x360 pixels
-- Rendering: Slide content on white background with:
-  - Sans-serif font
-  - Up to 15 lines of content
-  - Truncation indicator (...) for long content
-
-## Development
+## Building
 
 ```bash
 # Install dependencies
@@ -245,18 +356,27 @@ bun install
 # Run tests
 bun run test
 
-# Run examples
-bun run examples/usage.ts
-bun run examples/pdf-example.ts
-bun run examples/text-example.ts
-bun run examples/excel-example.ts
-bun run examples/word-example.ts
-bun run examples/pptx-example.ts
+# Run tests in watch mode
+bun run test:watch
 
-# Build
+# Lint code
+bun run lint
+
+# Format code
+bun run format
+
+# Build for production
 bun run build
 ```
 
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Author
+
+Created by [xcvzmoon](https://github.com/xcvzmoon).
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
