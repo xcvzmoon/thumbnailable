@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.6.0
+
+[compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.5.0...v0.6.0)
+
+### 🚀 Enhancements
+
+- Add pptx thumbnail getter ([1d92893](https://github.com/xcvzmoon/thumbnailable/commit/1d92893))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil <mrgamilmonalbert@gmail.com>
+
 ## v0.5.0
 
 [compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.4.0...v0.5.0)
