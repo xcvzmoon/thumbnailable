@@ -10,12 +10,12 @@ A TypeScript library for extracting thumbnails from various document formats.
 - **PDFs** - Generate thumbnails from PDF documents (first page, 640x360 centered)
 - **Text files** - Generate thumbnails from text files (TXT, CSV, MD, etc.)
 - **Excel** - Generate thumbnails from Excel spreadsheets (XLSX, XLS)
+- **Word** - Generate thumbnails from Word documents (DOC, DOCX)
 
 ## Planned Support
 
 The following formats will be supported in future releases:
 
-- **DOCX** - Microsoft Word documents
 - **PPTX** - Microsoft PowerPoint presentations
 
 ## Installation
@@ -96,6 +96,22 @@ const buffer = await readFile('./spreadsheet.xlsx');
 const thumbnail = await getExcelThumbnail(buffer);
 ```
 
+### Word Thumbnails
+
+```typescript
+import { getWordThumbnail } from 'thumbnailable';
+
+// From file path
+const thumbnail = await getWordThumbnail('./document.docx');
+
+// From file path with output
+const thumbnail = await getWordThumbnail('./document.docx', './output.webp');
+
+// From Buffer
+const buffer = await readFile('./document.docx');
+const thumbnail = await getWordThumbnail(buffer);
+```
+
 ## API
 
 ### `getImageThumbnail(image, output?)`
@@ -169,6 +185,26 @@ Generates a thumbnail preview from an Excel spreadsheet (first sheet only).
   - Up to 20 rows and 6 columns
   - Truncation indicator for long content
 
+### `getWordThumbnail(source, output?)`
+
+Generates a thumbnail preview from a Word document (DOC or DOCX).
+
+**Parameters:**
+
+- `source` - `string | Buffer` - Path to Word file or Buffer containing Word document data
+- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
+
+**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
+
+**Output:**
+
+- Format: WebP
+- Dimensions: 640x360 pixels
+- Rendering: Document content on white background with:
+  - Serif font (Times New Roman)
+  - Up to 20 lines of content
+  - Truncation indicator (...) for long content
+
 ## Development
 
 ```bash
@@ -183,6 +219,7 @@ bun run examples/usage.ts
 bun run examples/pdf-example.ts
 bun run examples/text-example.ts
 bun run examples/excel-example.ts
+bun run examples/word-example.ts
 
 # Build
 bun run build
