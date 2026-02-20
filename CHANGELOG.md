@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.5.0
+
+[compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.4.0...v0.5.0)
+
+### 🚀 Enhancements
+
+- Add word thumbnail getter ([fff22bd](https://github.com/xcvzmoon/thumbnailable/commit/fff22bd))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil <mrgamilmonalbert@gmail.com>
+
 ## v0.4.0
 
 [compare changes](https://github.com/xcvzmoon/thumbnailable/compare/v0.3.0...v0.4.0)
