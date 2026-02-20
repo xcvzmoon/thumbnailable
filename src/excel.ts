@@ -1,9 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { readFile, unlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import * as XLSX from 'xlsx';
+import { handleInput, renderToBuffer, bufferToArrayBuffer, ThumbnailError } from './utils';
 
 const TARGET_WIDTH = 640;
 const TARGET_HEIGHT = 360;
@@ -14,26 +11,6 @@ const CELL_PADDING = 8;
 const COL_WIDTH = 100;
 const MAX_ROWS = 20;
 const MAX_COLS = 6;
-
-function isURL(source: string) {
-  try {
-    new URL(source);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function downloadExcel(url: string) {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download Excel: ${response.status} ${response.statusText}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
 
 function escapeCellValue(value: unknown): string {
   if (value === null || value === undefined) return '';
@@ -49,11 +26,19 @@ function truncateCell(value: string, maxLen: number): string {
 }
 
 async function renderExcelThumbnail(buffer: Buffer) {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(buffer, { type: 'buffer' });
+  } catch {
+    throw new ThumbnailError('Invalid Excel file format', '<buffer>', 'INVALID_FORMAT');
+  }
+
   const sheetName = workbook.SheetNames[0] ?? 'Sheet1';
   const worksheet = workbook.Sheets[sheetName];
 
-  if (!worksheet) throw new Error('No worksheet found in workbook');
+  if (!worksheet) {
+    throw new ThumbnailError('No worksheet found in workbook', '<buffer>', 'NO_WORKSHEET');
+  }
 
   const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
   const canvas = createCanvas(TARGET_WIDTH, TARGET_HEIGHT);
@@ -107,44 +92,39 @@ async function renderExcelThumbnail(buffer: Buffer) {
     );
   }
 
-  const webpBuffer = await canvas.encode('webp');
-  return Buffer.from(webpBuffer);
+  return renderToBuffer(canvas);
 }
 
-export async function getExcelThumbnail(source: string | Buffer, output?: string) {
-  let excelBuffer: Buffer;
-  let outputPath: string;
-  let tmpOutputFile: string | undefined;
-
+/**
+ * Generates a thumbnail from an Excel spreadsheet (first sheet only).
+ *
+ * @param source - File path, URL, or Buffer of the Excel file
+ * @returns Promise<ArrayBuffer> - Thumbnail as WebP ArrayBuffer
+ *
+ * @example
+ * ```ts
+ * // From file path
+ * const thumbnail = await getExcelThumbnail('./data.xlsx');
+ *
+ * // From URL
+ * const thumbnail = await getExcelThumbnail('https://example.com/data.xlsx');
+ *
+ * // From Buffer
+ * const buffer = await readFile('./data.xlsx');
+ * const thumbnail = await getExcelThumbnail(buffer);
+ * ```
+ */
+export async function getExcelThumbnail(source: string | Buffer) {
   try {
-    if (Buffer.isBuffer(source)) excelBuffer = source;
-    else if (isURL(source)) excelBuffer = await downloadExcel(source);
-    else excelBuffer = await readFile(source);
-
-    if (output) {
-      outputPath = output;
-    } else {
-      tmpOutputFile = join(tmpdir(), `excel-thumbnail-${randomUUID()}.webp`);
-      outputPath = tmpOutputFile;
-    }
-
-    const thumbnailBuffer = await renderExcelThumbnail(excelBuffer);
-    await writeFile(outputPath, thumbnailBuffer);
-
-    const resultBuffer = thumbnailBuffer.buffer.slice(
-      thumbnailBuffer.byteOffset,
-      thumbnailBuffer.byteOffset + thumbnailBuffer.byteLength,
-    );
-
-    if (resultBuffer instanceof SharedArrayBuffer) {
-      throw new Error('Unexpected SharedArrayBuffer');
-    }
-
-    return resultBuffer;
+    const buffer = await handleInput(source);
+    const thumbnailBuffer = await renderExcelThumbnail(buffer);
+    return bufferToArrayBuffer(thumbnailBuffer);
   } catch (error) {
-    console.error('An error occurred while trying to generate Excel thumbnail', error);
-    throw error;
-  } finally {
-    if (tmpOutputFile) await unlink(tmpOutputFile).catch(() => {});
+    if (error instanceof ThumbnailError) throw error;
+    throw new ThumbnailError(
+      `Failed to generate Excel thumbnail: ${String(error)}`,
+      String(source),
+      'PROCESSING_ERROR',
+    );
   }
 }

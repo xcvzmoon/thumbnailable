@@ -1,52 +1,19 @@
-import type { Canvas, SKRSContext2D } from '@napi-rs/canvas';
-import { randomUUID } from 'node:crypto';
-import { writeFile, readFile, unlink } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createCanvas, Path2D } from '@napi-rs/canvas';
 import { getResolvedPDFJS } from 'unpdf';
-
-// Polyfill Path2D for PDF.js in Node.js environment
-// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-member-access
-(globalThis as any).Path2D = Path2D;
+import { handleInput, bufferToArrayBuffer, ThumbnailError } from './utils';
 
 const TARGET_WIDTH = 640;
 const TARGET_HEIGHT = 360;
 
-interface CanvasAndContext {
-  canvas: Canvas;
-  context: SKRSContext2D;
-}
-
-function isUrl(source: string): boolean {
-  try {
-    new URL(source);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function downloadPdf(url: string): Promise<Buffer> {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
 class NodeCanvasFactory {
-  create(width: number, height: number): CanvasAndContext {
+  create(width: number, height: number) {
     const canvas = createCanvas(width, height);
     const context = canvas.getContext('2d');
     return { canvas, context };
   }
 }
 
-async function renderCenteredThumbnail(pdfData: Uint8Array): Promise<Buffer> {
+async function renderCenteredThumbnail(pdfData: Uint8Array) {
   const { getDocument } = await getResolvedPDFJS();
   const canvasFactory = new NodeCanvasFactory();
 
@@ -90,40 +57,40 @@ async function renderCenteredThumbnail(pdfData: Uint8Array): Promise<Buffer> {
   return Buffer.from(webpBuffer);
 }
 
-export async function getPdfThumbnail(source: string | Buffer, output?: string) {
-  let pdfBuffer: Buffer;
-  let outputPath: string;
-  let tmpOutputFile: string | undefined;
+// Polyfill Path2D for PDF.js in Node.js environment
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-member-access
+(globalThis as any).Path2D = Path2D;
 
+/**
+ * Generates a thumbnail from a PDF document (first page only).
+ *
+ * @param source - File path, URL, or Buffer of the PDF file
+ * @returns Promise<ArrayBuffer> - Thumbnail as WebP ArrayBuffer
+ *
+ * @example
+ * ```ts
+ * // From file path
+ * const thumbnail = await getPdfThumbnail('./document.pdf');
+ *
+ * // From URL
+ * const thumbnail = await getPdfThumbnail('https://example.com/document.pdf');
+ *
+ * // From Buffer
+ * const buffer = await readFile('./document.pdf');
+ * const thumbnail = await getPdfThumbnail(buffer);
+ * ```
+ */
+export async function getPdfThumbnail(source: string | Buffer) {
   try {
-    if (Buffer.isBuffer(source)) pdfBuffer = source;
-    else if (isUrl(source)) pdfBuffer = await downloadPdf(source);
-    else pdfBuffer = await readFile(source);
-
-    if (output) {
-      outputPath = output;
-    } else {
-      tmpOutputFile = join(tmpdir(), `pdf-thumbnail-${randomUUID()}.webp`);
-      outputPath = tmpOutputFile;
-    }
-
-    const thumbnailBuffer = await renderCenteredThumbnail(new Uint8Array(pdfBuffer));
-    await writeFile(outputPath, thumbnailBuffer);
-
-    const resultBuffer = thumbnailBuffer.buffer.slice(
-      thumbnailBuffer.byteOffset,
-      thumbnailBuffer.byteOffset + thumbnailBuffer.byteLength,
-    );
-
-    if (resultBuffer instanceof SharedArrayBuffer) {
-      throw new Error('Unexpected SharedArrayBuffer');
-    }
-
-    return resultBuffer;
+    const buffer = await handleInput(source);
+    const thumbnailBuffer = await renderCenteredThumbnail(new Uint8Array(buffer));
+    return bufferToArrayBuffer(thumbnailBuffer);
   } catch (error) {
-    console.error('An error occurred while trying to generate PDF thumbnail', error);
-    throw error;
-  } finally {
-    if (tmpOutputFile) await unlink(tmpOutputFile).catch(() => {});
+    if (error instanceof ThumbnailError) throw error;
+    throw new ThumbnailError(
+      `Failed to generate PDF thumbnail: ${String(error)}`,
+      String(source),
+      'PROCESSING_ERROR',
+    );
   }
 }

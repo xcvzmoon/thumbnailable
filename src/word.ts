@@ -1,9 +1,6 @@
-import { randomUUID } from 'node:crypto';
-import { readFile, unlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import WordExtractor from 'word-extractor';
+import { handleInput, renderToBuffer, bufferToArrayBuffer, ThumbnailError } from './utils';
 
 const TARGET_WIDTH = 640;
 const TARGET_HEIGHT = 360;
@@ -12,26 +9,6 @@ const LINE_HEIGHT = 16;
 const PADDING = 12;
 const MAX_LINES = 20;
 const MAX_CHARS = 1500;
-
-function isURL(source: string): boolean {
-  try {
-    new URL(source);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function downloadWord(url: string): Promise<Buffer> {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download Word document: ${response.status} ${response.statusText}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
 
 function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -70,50 +47,44 @@ async function renderWordThumbnail(content: string) {
     context.fillText('...', PADDING, Math.min(y, TARGET_HEIGHT - PADDING));
   }
 
-  const webpBuffer = await canvas.encode('webp');
-  return Buffer.from(webpBuffer);
+  return renderToBuffer(canvas);
 }
 
-export async function getWordThumbnail(source: string | Buffer, output?: string) {
-  let content: string;
-  let outputPath: string;
-  let tmpOutputFile: string | undefined;
-
+/**
+ * Generates a thumbnail from a Word document (DOC or DOCX).
+ *
+ * @param source - File path, URL, or Buffer of the Word document
+ * @returns Promise<ArrayBuffer> - Thumbnail as WebP ArrayBuffer
+ *
+ * @example
+ * ```ts
+ * // From file path
+ * const thumbnail = await getWordThumbnail('./document.docx');
+ *
+ * // From URL
+ * const thumbnail = await getWordThumbnail('https://example.com/document.docx');
+ *
+ * // From Buffer
+ * const buffer = await readFile('./document.docx');
+ * const thumbnail = await getWordThumbnail(buffer);
+ * ```
+ */
+export async function getWordThumbnail(source: string | Buffer) {
   try {
-    let docxBuffer: Buffer;
-
-    if (Buffer.isBuffer(source)) docxBuffer = source;
-    else if (isURL(source)) docxBuffer = await downloadWord(source);
-    else docxBuffer = await readFile(source);
+    const buffer = await handleInput(source);
 
     const extractor = new WordExtractor();
-    const doc = await extractor.extract(docxBuffer);
-    content = doc.getBody();
-
-    if (output) {
-      outputPath = output;
-    } else {
-      tmpOutputFile = join(tmpdir(), `word-thumbnail-${randomUUID()}.webp`);
-      outputPath = tmpOutputFile;
-    }
+    const doc = await extractor.extract(buffer);
+    const content = doc.getBody();
 
     const thumbnailBuffer = await renderWordThumbnail(content);
-    await writeFile(outputPath, thumbnailBuffer);
-
-    const resultBuffer = thumbnailBuffer.buffer.slice(
-      thumbnailBuffer.byteOffset,
-      thumbnailBuffer.byteOffset + thumbnailBuffer.byteLength,
-    );
-
-    if (resultBuffer instanceof SharedArrayBuffer) {
-      throw new Error('Unexpected SharedArrayBuffer');
-    }
-
-    return resultBuffer;
+    return bufferToArrayBuffer(thumbnailBuffer);
   } catch (error) {
-    console.error('An error occurred while trying to generate Word thumbnail', error);
-    throw error;
-  } finally {
-    if (tmpOutputFile) await unlink(tmpOutputFile).catch(() => {});
+    if (error instanceof ThumbnailError) throw error;
+    throw new ThumbnailError(
+      `Failed to generate Word thumbnail: ${String(error)}`,
+      String(source),
+      'PROCESSING_ERROR',
+    );
   }
 }

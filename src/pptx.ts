@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
 import PptxParser from 'node-pptx-parser';
+import { handleInput, renderToBuffer, bufferToArrayBuffer, ThumbnailError } from './utils';
 
 const TARGET_WIDTH = 640;
 const TARGET_HEIGHT = 360;
@@ -12,26 +13,6 @@ const LINE_HEIGHT = 20;
 const PADDING = 16;
 const MAX_LINES = 15;
 const MAX_CHARS = 1200;
-
-function isURL(source: string): boolean {
-  try {
-    new URL(source);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function downloadPptx(url: string): Promise<Buffer> {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download PowerPoint: ${response.status} ${response.statusText}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
 
 function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
@@ -70,61 +51,53 @@ async function renderPptxThumbnail(content: string) {
     context.fillText('...', PADDING, Math.min(y, TARGET_HEIGHT - PADDING));
   }
 
-  const webpBuffer = await canvas.encode('webp');
-  return Buffer.from(webpBuffer);
+  return renderToBuffer(canvas);
 }
 
-export async function getPptxThumbnail(source: string | Buffer, output?: string) {
-  let filePath: string;
-  let outputPath: string;
-  let tmpOutputFile: string | undefined;
+/**
+ * Generates a thumbnail from a PowerPoint presentation (first slide only).
+ *
+ * @param source - File path, URL, or Buffer of the PowerPoint file
+ * @returns Promise<ArrayBuffer> - Thumbnail as WebP ArrayBuffer
+ *
+ * @example
+ * ```ts
+ * // From file path
+ * const thumbnail = await getPptxThumbnail('./presentation.pptx');
+ *
+ * // From URL
+ * const thumbnail = await getPptxThumbnail('https://example.com/presentation.pptx');
+ *
+ * // From Buffer
+ * const buffer = await readFile('./presentation.pptx');
+ * const thumbnail = await getPptxThumbnail(buffer);
+ * ```
+ */
+export async function getPptxThumbnail(source: string | Buffer) {
   let tmpInputFile: string | undefined;
 
   try {
-    if (Buffer.isBuffer(source)) {
-      tmpInputFile = join(tmpdir(), `pptx-src-${randomUUID()}.pptx`);
-      await writeFile(tmpInputFile, source);
-      filePath = tmpInputFile;
-    } else if (isURL(source)) {
-      const buffer = await downloadPptx(source);
-      tmpInputFile = join(tmpdir(), `pptx-src-${randomUUID()}.pptx`);
-      await writeFile(tmpInputFile, buffer);
-      filePath = tmpInputFile;
-    } else {
-      filePath = source;
-    }
+    const buffer = await handleInput(source);
 
-    const parser = new PptxParser(filePath);
+    tmpInputFile = join(tmpdir(), `pptx-src-${randomUUID()}.pptx`);
+    await writeFile(tmpInputFile, buffer);
+
+    const parser = new PptxParser(tmpInputFile);
     const textContent = await parser.extractText();
 
     const firstSlide = textContent[0];
     const content = firstSlide?.text?.join('\n') ?? '';
 
-    if (output) {
-      outputPath = output;
-    } else {
-      tmpOutputFile = join(tmpdir(), `pptx-thumbnail-${randomUUID()}.webp`);
-      outputPath = tmpOutputFile;
-    }
-
     const thumbnailBuffer = await renderPptxThumbnail(content);
-    await writeFile(outputPath, thumbnailBuffer);
-
-    const resultBuffer = thumbnailBuffer.buffer.slice(
-      thumbnailBuffer.byteOffset,
-      thumbnailBuffer.byteOffset + thumbnailBuffer.byteLength,
-    );
-
-    if (resultBuffer instanceof SharedArrayBuffer) {
-      throw new Error('Unexpected SharedArrayBuffer');
-    }
-
-    return resultBuffer;
+    return bufferToArrayBuffer(thumbnailBuffer);
   } catch (error) {
-    console.error('An error occurred while trying to generate PowerPoint thumbnail', error);
-    throw error;
+    if (error instanceof ThumbnailError) throw error;
+    throw new ThumbnailError(
+      `Failed to generate PowerPoint thumbnail: ${String(error)}`,
+      String(source),
+      'PROCESSING_ERROR',
+    );
   } finally {
-    if (tmpOutputFile) await unlink(tmpOutputFile).catch(() => {});
     if (tmpInputFile) await unlink(tmpInputFile).catch(() => {});
   }
 }

@@ -1,9 +1,13 @@
 import type { SKRSContext2D } from '@napi-rs/canvas';
-import { randomUUID } from 'node:crypto';
-import { readFile, unlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { createCanvas } from '@napi-rs/canvas';
+import {
+  isUrl,
+  downloadFromUrl,
+  renderToBuffer,
+  bufferToArrayBuffer,
+  ThumbnailError,
+} from './utils';
 
 const TARGET_WIDTH = 640;
 const TARGET_HEIGHT = 360;
@@ -12,25 +16,6 @@ const LINE_HEIGHT = 18;
 const PADDING = 16;
 const MAX_CHARS = 2000;
 const MAX_LINES = 50;
-
-function isURL(source: string) {
-  try {
-    new URL(source);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function downloadText(url: string) {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to download text: ${response.status} ${response.statusText}`);
-  }
-
-  return response.text();
-}
 
 function formatCsvLine(line: string) {
   return line.replace(/,/g, ' │ ');
@@ -62,6 +47,25 @@ function truncateText(text: string, maxChars: number) {
   return text.substring(0, maxChars - 3) + '...';
 }
 
+async function getTextContent(source: string | Buffer, mimeType?: string) {
+  if (Buffer.isBuffer(source)) {
+    return { content: source.toString('utf-8'), mimeType };
+  }
+
+  if (isUrl(source)) {
+    const response = await downloadFromUrl(source);
+    return { content: response.toString('utf-8'), mimeType };
+  }
+
+  let fileMimeType: string | undefined;
+  if (source.endsWith('.csv')) fileMimeType = 'text/csv';
+  else if (source.endsWith('.md')) fileMimeType = 'text/markdown';
+  else fileMimeType = 'text/plain';
+
+  const content = await readFile(source, 'utf-8');
+  return { content, mimeType: fileMimeType };
+}
+
 async function renderTextThumbnail(content: string, mimeType?: string) {
   const canvas = createCanvas(TARGET_WIDTH, TARGET_HEIGHT);
   const context = canvas.getContext('2d');
@@ -79,7 +83,7 @@ async function renderTextThumbnail(content: string, mimeType?: string) {
   lines = truncatedContent.split('\n').slice(0, MAX_LINES);
 
   const maxTextWidth = TARGET_WIDTH - PADDING * 2;
-  const startY = 0 + PADDING + FONT_SIZE;
+  const startY = PADDING + FONT_SIZE;
 
   let y = startY;
   for (let i = 0; i < lines.length && y < TARGET_HEIGHT - PADDING; i++) {
@@ -101,51 +105,39 @@ async function renderTextThumbnail(content: string, mimeType?: string) {
     context.fillText('...', PADDING, Math.min(y, TARGET_HEIGHT - PADDING));
   }
 
-  const webpBuffer = await canvas.encode('webp');
-  return Buffer.from(webpBuffer);
+  return renderToBuffer(canvas);
 }
 
-export async function getTextThumbnail(source: string | Buffer, output?: string) {
-  let content: string;
-  let outputPath: string;
-  let tmpOutputFile: string | undefined;
-  let mimeType: string | undefined;
-
+/**
+ * Generates a thumbnail from a text file (TXT, CSV, MD, etc.).
+ *
+ * @param source - File path, URL, or Buffer of the text file
+ * @returns Promise<ArrayBuffer> - Thumbnail as WebP ArrayBuffer
+ *
+ * @example
+ * ```ts
+ * // From file path
+ * const thumbnail = await getTextThumbnail('./document.txt');
+ *
+ * // From URL
+ * const thumbnail = await getTextThumbnail('https://example.com/document.txt');
+ *
+ * // From Buffer
+ * const buffer = await readFile('./document.txt');
+ * const thumbnail = await getTextThumbnail(buffer);
+ * ```
+ */
+export async function getTextThumbnail(source: string | Buffer) {
   try {
-    if (Buffer.isBuffer(source)) {
-      content = source.toString('utf-8');
-    } else if (isURL(source)) {
-      content = await downloadText(source);
-    } else {
-      content = await readFile(source, 'utf-8');
-      if (source.endsWith('.csv')) mimeType = 'text/csv';
-      else if (source.endsWith('.md')) mimeType = 'text/markdown';
-      else mimeType = 'text/plain';
-    }
-
-    if (output) {
-      outputPath = output;
-    } else {
-      tmpOutputFile = join(tmpdir(), `text-thumbnail-${randomUUID()}.webp`);
-      outputPath = tmpOutputFile;
-    }
-
+    const { content, mimeType } = await getTextContent(source);
     const thumbnailBuffer = await renderTextThumbnail(content, mimeType);
-    await writeFile(outputPath, thumbnailBuffer);
-    const resultBuffer = thumbnailBuffer.buffer.slice(
-      thumbnailBuffer.byteOffset,
-      thumbnailBuffer.byteOffset + thumbnailBuffer.byteLength,
-    );
-
-    if (resultBuffer instanceof SharedArrayBuffer) {
-      throw new Error('Unexpected SharedArrayBuffer');
-    }
-
-    return resultBuffer;
+    return bufferToArrayBuffer(thumbnailBuffer);
   } catch (error) {
-    console.error('An error occurred while trying to generate text thumbnail', error);
-    throw error;
-  } finally {
-    if (tmpOutputFile) await unlink(tmpOutputFile).catch(() => {});
+    if (error instanceof ThumbnailError) throw error;
+    throw new ThumbnailError(
+      `Failed to generate text thumbnail: ${String(error)}`,
+      String(source),
+      'PROCESSING_ERROR',
+    );
   }
 }
