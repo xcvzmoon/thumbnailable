@@ -9,6 +9,7 @@ A TypeScript library for extracting thumbnails from various document formats.
 - **Images** - Extract thumbnails from JPEG, PNG, and other image formats using EXIF data
 - **PDFs** - Generate thumbnails from PDF documents (first page, 640x360 centered)
 - **Text files** - Generate thumbnails from text files (TXT, CSV, MD, etc.)
+- **Excel** - Generate thumbnails from Excel spreadsheets (XLSX, XLS)
 
 ## Planned Support
 
@@ -16,7 +17,6 @@ The following formats will be supported in future releases:
 
 - **DOCX** - Microsoft Word documents
 - **PPTX** - Microsoft PowerPoint presentations
-- **Excel** - Microsoft Excel spreadsheets (XLSX, XLS)
 
 ## Installation
 
@@ -80,6 +80,22 @@ const buffer = await readFile('./document.txt');
 const thumbnail = await getTextThumbnail(buffer);
 ```
 
+### Excel Thumbnails
+
+```typescript
+import { getExcelThumbnail } from 'thumbnailable';
+
+// From file path
+const thumbnail = await getExcelThumbnail('./spreadsheet.xlsx');
+
+// From file path with output
+const thumbnail = await getExcelThumbnail('./spreadsheet.xlsx', './output.webp');
+
+// From Buffer
+const buffer = await readFile('./spreadsheet.xlsx');
+const thumbnail = await getExcelThumbnail(buffer);
+```
+
 ## API
 
 ### `getImageThumbnail(image, output?)`
@@ -132,6 +148,27 @@ Generates a thumbnail preview from a text file (TXT, CSV, MD, etc.).
   - Truncation indicator (...) for long content
   - Support for up to 50 lines or 2000 characters
 
+### `getExcelThumbnail(source, output?)`
+
+Generates a thumbnail preview from an Excel spreadsheet (first sheet only).
+
+**Parameters:**
+
+- `source` - `string | Buffer` - Path to Excel file or Buffer containing Excel data
+- `output` - `string` (optional) - Output file path for the generated thumbnail (WebP format)
+
+**Returns:** `Promise<ArrayBuffer>` - The thumbnail as an ArrayBuffer
+
+**Output:**
+
+- Format: WebP
+- Dimensions: 640x360 pixels
+- Rendering: Spreadsheet content on white background with:
+  - Gridlines
+  - Header row highlighting
+  - Up to 20 rows and 6 columns
+  - Truncation indicator for long content
+
 ## Development
 
 ```bash
@@ -145,6 +182,7 @@ bun run test
 bun run examples/usage.ts
 bun run examples/pdf-example.ts
 bun run examples/text-example.ts
+bun run examples/excel-example.ts
 
 # Build
 bun run build
